@@ -121,6 +121,7 @@ class Brush(object):
         di = 0
 
 
+    def
     def parityOf(self, int_type):
         #https://wiki.python.org/moin/BitManipulation
         parity = 0
