@@ -1,0 +1,437 @@
+unit Thckline;
+{Demonstrates Murphy's Modification to Bresenham's Algorithm.
+
+This demo code, shows how to draw thick lines by visiting each pixel
+only once. This is useful if you want to XOR the pixels produced.
+An extension to the algorithm shows how to use it for drawing patterns
+on the thick line.
+
+The main algorithms are in ThickPerpBtn and ThickParBtn - all the other
+functions and procedures are for support and demo purposes only.
+
+The notation follows that in the IBM TDB, however, it would have
+beeen better to give the variables more meaningful names. I may
+do this in the future.
+
+This particular code is copyright A S Murphy 1999, but you are
+free to adapt the algorithm to suit your own purposes}
+
+interface
+
+uses
+  SysUtils, WinTypes, WinProcs, Messages, Classes, Graphics, Controls,
+  Forms, Dialogs, StdCtrls, ExtCtrls;
+
+type
+  TForm1 = class(TForm)
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    startedbx: TEdit;
+    endedbx: TEdit;
+    thickedbx: TEdit;
+    image: TImage;
+    ThinBtn: TButton;
+    exitbtn: TButton;
+    ThickPerpBtn: TButton;
+    ThickParBtn: TButton;
+    Memo: TMemo;
+    tvaredbx: TEdit;
+    Label5: TLabel;
+    startcb: TCheckBox;
+    patterncombo: TComboBox;
+    Label6: TLabel;
+    Label7: TLabel;
+    helpbtn: TButton;
+    {Thick Line algorithms}
+    procedure ThickPerpBtnClick(Sender: TObject);
+    procedure ThickParBtnClick(Sender: TObject);
+    {support procedures}
+    procedure exitbtnClick(Sender: TObject);
+    procedure ThinBtnClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure helpbtnClick(Sender: TObject);
+  private
+    { Private declarations }
+    pixelcounter,scale,maxx,maxy:integer;
+    thickness,thickvar:single;
+    startpt,endpt:Tpoint;
+    {tailoring functions}
+    function thickfunct(n,u:integer):single;
+    function pixcolor(p,q:integer):TColor;
+    {support prodedures}
+    function SetupOK:boolean;                     {setup and check coords}
+    procedure ClearImage;                         {Prepare the canvas}
+    procedure SetPixel(pt:TPoint;pixcol:TColor);  {sets pixel (x,y) with pixcolor}
+    procedure linetopixel(pt:TPoint;linecolor:TColor);     {draws line to a pixel}
+    procedure startline(var frompt:TPoint;topt:TPoint);
+    procedure textat(x,y:integer;txt:string);     {writes text at x,y }
+    function parsecoord(txt:string):TPoint;       {Parse coordinate string}
+    function transform(pt:Tpoint):Tpoint;         {transform from user to canvas}
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+  {tailoring function}
+  function normconstant(u,v:integer):single;  {thickness normalising function}
+  function even(x:integer):boolean;    {determines if x is an even number}
+implementation
+
+{$R *.DFM}
+
+procedure TForm1.ThinBtnClick(Sender: TObject);
+var txt:string;i:integer;pt:TPoint;
+    u,v: integer;    {u=x2-x1;  v=y2-y1;}
+    p,d: integer;    {p=along line counter, d=diffference term}
+    ku,kv,kt,kd:integer;  {loop constants}
+begin  {Bresenham's thin line algorithm - single thickness}
+   with image.canvas do begin
+     if not(setupOK) then exit;
+     {Initialisation}
+     u:=endpt.x-startpt.x;   {delta x}
+     v:=endpt.y-startpt.y;   {delta y}
+     ku:=u+u;
+     kv:=v+v;     {square shift change in d}
+     kd:=kv-ku;   {diagonal shift change in d}
+     kt:=u-kv;    {diag/square decision threshold}
+     pt:=startpt;
+     p:=0; d:=0;
+     while (p<=u) do begin
+       if (p<>0) then linetopixel(pt,clBlack);   {demo code - except first pixel}
+       Setpixel(pt,clBlack);
+       if d<=kt then begin {square move}
+                         pt.x:=pt.x+1;
+                         d:=d+kv;
+                      end
+       else begin {diagonal move}
+                  pt.x:=pt.x+1;
+                  pt.y:=pt.y+1;
+                  d:=d+kd;
+            end;
+       inc(p);
+     end; {while}
+  end;
+end;
+
+
+procedure TForm1.ThickPerpBtnClick(Sender: TObject);
+var txt:string;pt,lastpt:TPoint;    {Implements figure 4A}
+    d0,d1:integer;  {difference terms d0=perpendicular to line, d1=along line}
+    u,v:integer;    {u=x2-x1;  v=y2-y1;}
+    p,q:integer;    {pel counters, p=along line, q=perpendicular to line}
+    ku,kv,kd,ks,kt:integer;  {loop constants}
+    tk:single;               {thickness threshold}
+
+   procedure perpendicular(pt:Tpoint;d0,d1:integer);
+   begin {Implements Figure 4B}
+     tk:=2*thickfunct(p,u)*normconstant(u,v); {only necessary for variable thickeness lines}
+     d0:=-d0;
+     q:=0;      {inner loop counter}
+     while (d0<=tk) do
+       begin
+         if (q<>0) then linetopixel(pt,clBlack);  {demo code - except first pixel}
+         setpixel(pt,pixcolor(p,q));
+         if startcb.checked then exit; {enabled to ignore inner loop and view start points}
+         if d1<kt then begin {square move  MS}
+                         pt.y:=pt.y+1;
+                         d1:=d1+kv;
+                         d0:=d0+ku;
+                       end
+         else begin {diagonal move  MD}
+                  pt.x:=pt.x-1;
+                  pt.y:=pt.y+1;
+                  d1:=d1+kd;
+                  d0:=d0+ks;
+              end;
+         inc(q);
+       end;
+   end; {perpendicular}
+
+begin  {Implements Figure 4A}
+   with image.canvas do begin
+     if not(setupOK) then exit;
+     {Initialisation}
+     u:=endpt.x-startpt.x;   {delta x}
+     v:=endpt.y-startpt.y;   {delta y}
+     ku:=u+u;     {change in l for square shift}
+     kv:=v+v;     {change in d for square shift}
+     kd:=kv-ku;   {change in d for diagonal shift}
+     ks:=kv+ku;   {change in l for diagonal shift}
+     kt:=u-kv;    {diag/square decision threshold}
+     tk:=2*thickness*normconstant(u,v);  {used here for constant thickness line}
+     d0:=0; d1:=0;
+     pt:=startpt;
+     lastpt:=pt;     {demo code only}
+     p:=0;  {outer loop counter}
+     while (p<=u) do {outer loop, stepping along line}
+       begin
+         if p<>0 then startline(lastpt,pt);   {demo code, not for first pixel}
+         perpendicular(pt,d0,d1);
+         if d0<kt then begin {square move}
+                         pt.x:=pt.x+1;   {move M0}
+                      end
+         else begin {diagonal move}
+                  d0:=d0-ku;
+                  if d1<kt then begin  {normal start}
+                                  pt.x:=pt.x+1;
+                                  pt.y:=pt.y+1; {move M1}
+                                  d1:=d1+kv;
+                            end
+                            else begin {double square move, need extra perpendicular line}
+                                  pt.y:=pt.y+1;    {move M2}
+                                  d1:=d1+kd;
+                                  startline(lastpt,pt);      {demo code only}
+                                  perpendicular(pt,d0,d1);   {extra perpendicular}
+                                  pt.x:=pt.x+1;    {move m0}
+                            end;
+              end;
+         d0:=d0+kv;
+         inc(p);
+       end;
+  end;
+end;
+
+procedure TForm1.ThickParBtnClick(Sender: TObject);
+{implements figure 5A - draws lines parallel to ideal line}
+var txt:string;i:integer;pt,lastpt:TPoint;
+   d0,d1:integer;  {difference terms d0=perpendicular to line, d1=along line}
+   dd:integer;     {distance along line}
+   u,v:integer;    {u=x2-x1;  v=y2-y1;}
+   p,q:integer;    {pel counters, p=along line, q=perpendicular to line}
+   ku,kv,kd,{ks,}kt:integer;  {loop constants}
+   tk:single;               {thickness threshold}
+
+   procedure parallelline(pt:Tpoint;d1:integer);
+   begin  {implements Figure 5B}
+     p:=0;  d1:=-d1;
+     while (p<=u) do {test for end of parallel line}
+       begin
+         if (p<>0) then linetopixel(pt,clBlack);  {demo code - except first pixel}
+         setpixel(pt,pixcolor(p,q));
+         if startcb.checked then exit; {enabled for one pass}
+         if d1<=kt then begin {square move}
+                         pt.x:=pt.x+1;
+                         d1:=d1+kv;
+                       end
+         else begin {diagonal move}
+                  pt.x:=pt.x+1;
+                  pt.y:=pt.y+1;
+                  d1:=d1+kd;
+              end;
+         inc(p);
+       end;
+   end; {perpendicular}
+begin  {implements figure 5A }
+   with image.canvas do begin
+     if not(setupOK) then exit;
+     {Initialisation}
+     u:=endpt.x-startpt.x;   {delta x}
+     v:=endpt.y-startpt.y;   {delta y}
+     ku:=u+u;     {change in l for square shift}
+     kv:=v+v;     {change in d for square shift}
+     kd:=kv-ku;   {change in d for diagonal shift}
+     kt:=u-kv;    {diag/square decision threshold}
+     tk:=2*thickness*normconstant(u,v);  {used here for constant thickness line}
+     d0:=0; d1:=0; dd:=0;
+     pt:=startpt;
+     lastpt:=pt;            {demo code only}
+     q:=0;  {outer loop counter}
+     while (dd<tk) do {outer loop, stepping perpendicular to line}
+       begin
+         if q<>0 then startline(lastpt,pt);   {demo code, not first pixel}
+         parallelline(pt,d1);
+         if d0<kt then begin {square move}
+                         pt.y:=pt.y+1;
+                      end
+         else begin {diagonal move}
+                  dd:=dd+kv;
+                  d0:=d0-ku;
+                  if d1<kt then begin  {normal diagonal}
+                                  pt.x:=pt.x-1;
+                                  pt.y:=pt.y+1;
+                                  d1:=d1+kv;
+                            end
+                            else begin {double square move, extra parallel line}
+                               pt.x:=pt.x-1;
+                               d1:=d1+kd;
+                               if dd>tk then exit;    {breakout on the extra line}
+                               startline(lastpt,pt);  {demo code only}
+                               parallelline(pt,d1);
+                               pt.y:=pt.y+1;
+                            end;
+              end;
+         dd:=dd+ku;
+         d0:=d0+kv;
+         inc(q);
+       end;
+  end;
+end;
+
+function normconstant(u,v:integer):single;
+var choice:integer;
+begin
+    u:=abs(u); v:=abs(v);
+    choice:=3;   {change this to suit taste/compute power etc.}
+    case choice of
+      1: Result:=u+v/4;    {12% thickness error - uses add and shift only}
+      2: begin             {2.7% thickness error, uses compare, add and shift only}
+             if (v+v+v)>u then Result:=u-(u/8)+v/2
+                          else Result:=u+v/8;
+         end;
+      3: Result:=sqrt(u*u+v*v);  {ideal}
+    end; {case}
+end;
+
+function TForm1.thickfunct(n,u:integer):single;
+begin  {for variable thickness lines}
+   Result:=thickness+thickvar*n/u;   {n/u is fraction of line traversed}
+end;
+
+function TForm1.pixcolor(p,q:integer):TColor;
+var mycol:TColor;
+begin  {various line patterns depending on p and q}
+   Result:=clWhite;  {default}
+   mycol:=clGray;
+   case patterncombo.itemindex of
+     0:  Result:=clSilver;  {solid line}
+     1:  if even(q) then Result:=mycol;  {longitudinal stripes}
+     2:  if even(p) then Result:=mycol;  {transverse stripes}
+     3:  if (even(p) xor even(q)) then Result:=mycol;  {checkerboard}
+     4:  if (even(trunc((p+q)/2))) then Result:=mycol;  {diagonal1}
+     5:  if (even(trunc((p-q)/2))) then Result:=mycol;  {diagonal2}
+
+   else  Result:=clWhite;   {nothing}
+   end; {case}
+end;
+{--------------------support procedures--------------------------------}
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+   scale:=25; maxx:=24; maxy:=14;
+   startpt:=Point(4,2);
+   endpt:=Point(20,8);
+   thickness:=5.5; {can be a real number, not integer}
+   thickvar:=0;    {can be a real number, not integer}
+end;
+
+procedure TForm1.FormShow(Sender: TObject);
+begin
+   startedbx.text:=inttostr(startpt.x)+'  '+inttostr(startpt.y);
+   endedbx.text:=inttostr(endpt.x)+'  '+inttostr(endpt.y);
+   thickedbx.text:=floattostr(thickness);
+   tvaredbx.text:=floattostr(thickvar);
+   image.height:=11+scale*maxy;
+   image.width:=11+scale*maxx;
+   patterncombo.itemindex:=0;
+   clearimage;
+end;
+
+procedure TForm1.helpbtnClick(Sender: TObject);
+begin
+   memo.visible:=not(memo.visible);
+end;
+
+procedure TForm1.exitbtnClick(Sender: TObject);
+begin
+   Close;
+end;
+
+function TForm1.SetupOK:boolean;
+var u,v:integer;
+begin {sets up the data needed}
+  clearimage;
+  startpt:=parsecoord(startedbx.text);
+  endpt:=parsecoord(endedbx.text);
+  u:=endpt.x-startpt.x;
+  v:=endpt.y-startpt.y;
+  Result:=false;
+  if (u<0)or(v<0)or(u<=v) then showmessage('Invalid Coordinates - Line not in first Octant')
+  else begin
+    try thickness:=strtofloat(thickedbx.text); except thickness:=3; end;
+    try thickvar:=strtofloat(tvaredbx.text); except thickvar:=0; end;
+    Result:=true;
+  end;
+end;
+
+procedure TForm1.ClearImage;
+var x,y:integer;pt:TPoint;
+begin  {clears the image and initialise the drawing canvas}
+   image.canvas.rectangle(0,0,image.width-1,image.height-1);
+   image.canvas.font.Name := 'Times New Roman';
+   image.canvas.font.size:=8;
+   for x:=0 to maxx do begin
+     textat(x,0,inttostr(x));  {draw x axis labels}
+     for y:=0 to maxy do begin {plot spots on canvas}
+         pt.x:=x; pt.y:=y;
+         pt:=transform(pt);
+         image.canvas.pixels[pt.x,pt.y]:=clBlack;
+     end;
+   end;
+   for y:=0 to maxy do textat(0,y,inttostr(y));  {draw y axis labels}
+   pixelcounter:=0;
+end;
+
+procedure TForm1.textat(x,y:integer;txt:string);
+var pt:TPoint;  {writes text at x,y }
+begin
+    pt:=Point(x,y);
+    pt:=transform(pt);
+    image.canvas.textout(pt.x-4,pt.y-4,txt);
+end;
+
+function TForm1.transform(pt:Tpoint):Tpoint;
+begin  {transforms pt from user coordinates to canvas coordinates}
+   Result.x:=pt.x*scale+10;
+   Result.y:=image.height-pt.y*scale-10;
+end;
+
+procedure TForm1.SetPixel(pt:TPoint;pixcol:TColor);
+var x,y:integer;  {writes a pixel at pt with color}
+begin
+  with image.canvas do begin
+   pt:=transform(pt);
+   pen.color:=pixcol;
+   rectangle(pt.x-10,pt.y-10,pt.x+10,pt.y+10);
+   textout(pt.x-3,pt.y-6,inttostr(pixelcounter));
+   moveto(pt.x,pt.y);
+   inc(pixelcounter);
+  end;
+end;
+
+procedure Tform1.startline(var frompt:TPoint;topt:TPoint);
+begin  {draws red line between frompt and topt}
+   frompt:=transform(frompt);
+   image.canvas.moveto(frompt.x,frompt.y);
+   linetopixel(topt,clRed);
+   frompt:=topt;         {for next time}
+end;
+
+procedure TForm1.linetopixel(pt:TPoint;linecolor:TColor);
+var x,y:integer;mypt:Tpoint;   {draws line to a pixel}
+begin
+   mypt:=transform(pt);
+   image.canvas.pen.color:=linecolor;
+   image.canvas.lineto(mypt.x,mypt.y); {from previous pixel}
+end;
+
+function TForm1.parsecoord(txt:string):TPoint;
+var i:integer;    {recover coordinates from edit boxes}
+begin
+    i:=pos(' ',txt);
+    try Result.x:=strtoint(copy(txt,1,i-1))  except Result.x:=0; end;
+    try Result.y:=strtoint(copy(txt,i+1,99)) except Result.y:=0; end;
+end;
+
+function even(x:integer):boolean;
+var j:single;
+begin  {determines if x is even}
+   if x<0 then x:=-x;
+   j:=trunc(x/2);
+   Result:=(x=2*j);
+end;
+
+
+end.
