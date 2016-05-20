@@ -9,33 +9,17 @@ from math import pi
 
 class ColorWheel(object):
 
-        self.CX = 0
-        self.CY = 0
-        self.R  = None
-        self.xs = []
-        self.ys = []
 
     def __init__(self, R, CX, CY):
         self.R = R
         self.CX = CX
         self.CY = CY
+        self.xs = []
+        self.ys = []
 
         #circle width w
         #triangle height h
         #triangle base b
-        inner_radius = R - w
-        outer_radius = R + w
-        h = w
-        inner_circ = 2 * pi * inner_radius
-        outer_circ = 2 * pi * outer_radius
-        b = outer_circ / inner_circ
-        #area = b * h / 2
-        triangles = inner_circ
-        delta_angle = 360 / triangles
-
-        #For
-        prep_circle(inner_radius)
-        prep_circle(outer_radius)
 
     def prep_circle(self, R):
         # The Fast Bresenham Algorithm (Kennedy-Bresenham)

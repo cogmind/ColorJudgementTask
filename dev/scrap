@@ -1,0 +1,14 @@
+
+        inner_radius = R - w
+        outer_radius = R + w
+        h = w
+        inner_circ = 2 * pi * inner_radius
+        outer_circ = 2 * pi * outer_radius
+        b = outer_circ / inner_circ
+        #area = b * h / 2
+        triangles = inner_circ
+        delta_angle = 360 / triangles
+
+        #For
+        prep_circle(inner_radius)
+        prep_circle(outer_radius)
