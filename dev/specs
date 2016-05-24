@@ -1,0 +1,32 @@
+PRIORITY 1
+
+0. Create a new branch: Continuous
+
+copy the color-wheelcode into src/tools
+
+1. Create rotated variations
+2. Save m bitmaps at n rotations e.g. 90 rotations shifts the array 180/90 = 2. Has to be an integer - assert that
+3. Load bitmaps in PyPres
+4. Create cmd line command --color
+5. --color sets Condition.response = "Continuous". default = slot
+6. Create conditions based on 5.
+7a. Restrict subliminal to slot based CDT
+ b. Figure out the frames
+ c. Create
+
+8. Pick a random color from the vanMises phase space
+9. Pick multiple colors. Reuse older functions when possible
+A. Create outlines
+B. Pick target - there should be a function for this already
+C. Create thick outline for target only
+D.
+
+
+----------------------------------------------------
+
+PRIORITY 2
+
+1. Set the size of the circle in degrees
+2. Calibrate the colors
+3. COnfigure presentation with an ICM profile
+4. Add ICM profile to code
